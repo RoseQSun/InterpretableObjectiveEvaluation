@@ -1,0 +1,10 @@
+M:4/4
+K:Dmix
+A,DFA d2cA|GcAB
+A,DFA d2cA|cBAB
+Add^c dcAB|cdcB
+Fdd^c dcAB|cdcA
+c2AF|GFEC
+c2AG|FAFG
+cAGE|G2FG
+GEFG|ABcA
