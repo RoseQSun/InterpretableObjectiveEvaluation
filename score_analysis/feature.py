@@ -1,4 +1,4 @@
-from music21 import stream, meter, key
+from music21 import stream, meter, key, interval
 import numpy as np
 
 
@@ -72,3 +72,83 @@ def rests_on_strong_ratio(score, keysig=None):
 
 def rests_on_weak_ratio(score, keysig=None):
     return _rests_on_beat(score, keysig, strong=False)
+
+
+def _lengths_on_beat(score, timesig=None, strong=True):
+    timesig = time_sig(score) if timesig is None else timesig
+    event_beats = []  # [n.beat]
+    event_lengths = []
+
+    for n in score.recurse().notesAndRests:
+        event_beats.append(n.beat)
+        event_lengths.append(n.quarterLength)
+
+    event_beats = np.array(event_beats)  
+    event_lengths = np.array(event_lengths)     
+    strong_array = _strong_beat_pos(timesig)
+
+    events_in_array = np.where(np.in1d(event_beats, strong_array))[0]
+
+    lengths = event_lengths[events_in_array if strong else ~events_in_array]
+
+    if len(lengths) == 0:
+        return None
+
+    return lengths
+ 
+def lengths_on_strong(score, keysig=None):
+    return _lengths_on_beat(score, keysig, strong=True)
+
+
+def lengths_on_weak(score, keysig=None):
+    return _lengths_on_beat(score, keysig, strong=False)
+
+
+def _scale_degrees_on_beat(score, keysig=None, timesig=None, strong=True):
+    keysig = key_sig(score) if keysig is None else keysig
+    if keysig is None: return None
+    timesig = time_sig(score) if timesig is None else timesig
+
+    beats = []
+    degrees = []
+    k = key.Key(*keysig)
+    strong_array = _strong_beat_pos(timesig)
+
+    for i in score.parts:
+        for j in i.flat.getElementsByClass("Note"):
+            degree, accidental = k.getScaleDegreeAndAccidentalFromPitch(j.pitch)
+            if accidental is None:
+                degrees.append(degree)
+                beats.append(j.beat)
+    degrees = np.array(degrees)
+    beats = np.array(beats)
+
+    events_in_array = np.where(np.in1d(beats, strong_array))[0]
+    return degrees[events_in_array if strong else ~events_in_array]
+
+
+def scale_degrees_on_strong(score, keysig=None, timesig=None):
+    return _scale_degrees_on_beat(score, keysig=keysig, timesig=timesig, strong=True)
+
+
+def scale_degrees_on_weak(score, keysig=None, timesig=None):
+    return _scale_degrees_on_beat(score, keysig=keysig, timesig=timesig, strong=False)
+
+
+def pitch_intervals(score):
+    intlist = []
+    for i in score.recurse().getElementsByClass('Note'):
+        if i.next('Note') is None:
+            continue
+        thisint = interval.Interval(i, i.next('Note'))
+        intlist.append(thisint.semitones)
+    return np.array(intlist)
+
+
+def average_interval(intervals):
+    return np.mean(np.abs(intervals))
+
+
+def direction_change_count(intervals):
+    zero_removed = intervals[intervals != 0]
+    return (np.diff(np.sign(zero_removed)) != 0).sum()
